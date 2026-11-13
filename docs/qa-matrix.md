@@ -7,8 +7,8 @@
 
 ## 软件证据
 
-代码基线：`eda566dbc51fd8ff3de0aef6c4a63f47e0053541`。
-[CI 运行](https://github.com/AureliusWu/SiLing/actions/runs/43342056992)。
+代码基线：`11cbd31af0b2be651304ebde0d8d21177c2c2772`。
+[CI 运行](https://github.com/AureliusWu/SiLing/actions/runs/43343803939)。
 本地环境 Linux x86_64 / glibc 2.41 / Python 3.12.14 / Node 24.22.1。
 Windows CI 为 Windows Server 2022 / Python 3.12，具体小版本以运行日志为准。
 
@@ -38,15 +38,15 @@ Windows CI 为 Windows Server 2022 / Python 3.12，具体小版本以运行日�
 | UI 操作与布局 | PASS | CI Playwright：桌面和 390px 视口无横向溢出，模拟转写/静音清理/设置/退出，0 page errors |
 | Python wheel/sdist | PASS | 两平台 CI 实际构建；纯服务包与 Windows 完整候选包用途不同 |
 | Windows 冻结程序 | PASS | 修复后的 EXE 通过 doctor、HTTP/UI 鉴权与模拟闭环、完全退出，以及男女声真实 KWS/VAD/ASR 推理；每次返回码和识别 JSON 均验证 |
-| Tauri EXE / NSIS / 便携 ZIP | PASS | Windows CI 全部成功；实际输出桌面 EXE、43,317,906 bytes NSIS 安装程序和便携 ZIP；下载后核验 PE 与 SHA-256，交互/安装实机仍未测 |
+| Tauri EXE / NSIS / 便携 ZIP | PASS | Windows CI 全部成功；实际输出桌面 EXE、43,319,944 bytes NSIS 安装程序和便携 ZIP；下载后核验 PE 与 SHA-256，交互/安装实机仍未测 |
 
 ## 构建产物
 
-[Windows Artifact](https://github.com/AureliusWu/SiLing/actions/runs/43342056992/artifacts/14001010217)。
-原始 Actions 归档 SHA-256：`9281ad3876695fdcadfb8da575600551a3db6f4f96a701433ecc7adcc43a0315`。
-便携 ZIP SHA-256：`3815adcf7ac4b779315b85e13ecd9dfbf5f4bf9e33fe03110e7dd67a10822886`。
-安装程序 SHA-256：`a33a7209a96e345398a45ca2ca3f6289d43918eca7c442be613fe1aec1a4526e`。
-Windows 冻结 ASR 单次观测：女声 158.6 ms，男声 165.1 ms，均识别为“打开记事本。”。
+[Windows Artifact](https://github.com/AureliusWu/SiLing/actions/runs/43343803939/artifacts/13999789082)。
+原始 Actions 归档 SHA-256：`cbd48877c46e8c25f7e6dfb0977a1c51c25b434f405cc09d63a1f3d91910c5cd`。
+便携 ZIP SHA-256：`a3c60a2c4cf9acb514668cef5a98ca89d28ed2215a8b995c082b5c8d2905ebdc`。
+安装程序 SHA-256：`9430100ce7781ee09b0792f9ffad6f72c9596ca0ce5ccf83265562ac4ded0650`。
+Windows 冻结 ASR 单次观测：女声 80.8 ms，男声 81.2 ms，均识别为“打开记事本。”。
 构建内 build-info.json 记录 commit，模型不在包内。Artifact 保留 30 天。
 Rust 实际解析 tauri 2.12.5 / tauri-build 2.7.4，对应已构建图写入 Cargo.lock。
 

@@ -1,12 +1,12 @@
 {
   "version": "0.1.0",
-  "code_commit": "eda566dbc51fd8ff3de0aef6c4a63f47e0053541",
-  "workflow_run": 43342056992,
-  "artifact_id": 14001010217,
+  "code_commit": "11cbd31af0b2be651304ebde0d8d21177c2c2772",
+  "workflow_run": 43343803939,
+  "artifact_id": 13999789082,
   "all_jobs": "PASS",
-  "archive_sha256": "9281ad3876695fdcadfb8da575600551a3db6f4f96a701433ecc7adcc43a0315",
-  "portable_sha256": "3815adcf7ac4b779315b85e13ecd9dfbf5f4bf9e33fe03110e7dd67a10822886",
-  "installer_sha256": "a33a7209a96e345398a45ca2ca3f6289d43918eca7c442be613fe1aec1a4526e",
+  "archive_sha256": "cbd48877c46e8c25f7e6dfb0977a1c51c25b434f405cc09d63a1f3d91910c5cd",
+  "portable_sha256": "a3c60a2c4cf9acb514668cef5a98ca89d28ed2215a8b995c082b5c8d2905ebdc",
+  "installer_sha256": "9430100ce7781ee09b0792f9ffad6f72c9596ca0ce5ccf83265562ac4ded0650",
   "hardware_acceptance": "NOT_VERIFIED",
   "windows_frozen_transcripts": {
     "female": [
@@ -14,7 +14,7 @@
         "type": "transcript",
         "text": "打开记事本。",
         "session": 1,
-        "asr_ms": 158.6
+        "asr_ms": 80.8
       }
     ],
     "male": [
@@ -22,8 +22,9 @@
         "type": "transcript",
         "text": "打开记事本。",
         "session": 1,
-        "asr_ms": 165.1
+        "asr_ms": 81.2
       }
     ]
-  }
+  },
+  "previous_successful_commit": "eda566dbc51fd8ff3de0aef6c4a63f47e0053541"
 }
