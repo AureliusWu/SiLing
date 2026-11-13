@@ -1,0 +1,137 @@
+name: SiLing R0 R1 validation and Windows build
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "README.md", "LICENSE", "CHANGELOG.md"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: siling-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.lock
+      - run: python -m pip install --no-deps --no-build-isolation -e .
+      - run: python -m ruff check services tests scripts
+      - run: python -m ruff format --check services tests scripts
+      - run: python -m mypy services/voice/src
+      - run: python -m pytest -q --junitxml=.evidence/pytest.xml --cov=siling_voice --cov-report=xml:.evidence/coverage.xml
+      - run: python -m siling_voice doctor
+      - run: python -m build --no-isolation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            .evidence
+            dist/*.whl
+            dist/*.tar.gz
+          include-hidden-files: true
+  windows:
+    runs-on: windows-2022
+    needs: [python, real-models]
+    env:
+      SILING_MODEL_DIR: ${{ github.workspace }}/models
+      SILING_CONFIG_DIR: ${{ github.workspace }}/.ci-config
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: python -m pip install -r requirements-dev.lock
+      - run: python -m pip install --no-deps --no-build-isolation -e .
+      - run: npm ci
+      - run: npm run typecheck && npm run build
+      - run: python scripts/package_windows.py
+      - name: Check native dependency loading
+        run: .\dist\SiLing-Voice.exe doctor
+      - name: Exercise frozen service and fake audio
+        run: python scripts/frozen_smoke.py dist/SiLing-Voice.exe
+      - uses: actions/download-artifact@v4
+        with:
+          name: synthetic-test-inputs-${{ github.sha }}
+          path: fixtures
+      - name: Verify packaged real KWS VAD and ASR
+        run: |
+          .\dist\SiLing-Voice.exe models download
+          .\dist\SiLing-Voice.exe wav fixtures/positive-3.wav --output .evidence/frozen-real-female.json
+          .\dist\SiLing-Voice.exe wav fixtures/positive-58.wav --output .evidence/frozen-real-male.json
+      - name: Build Tauri Windows installer
+        run: npm run tauri -- build
+      - name: Prepare portable candidate and provenance
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/portable | Out-Null
+          Copy-Item dist/SiLing-Voice.exe dist/portable/
+          Copy-Item apps/desktop/src-tauri/target/release/siling-desktop.exe dist/portable/SiLing.exe
+          Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/portable/
+          '{"version":"0.1.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.1.0-windows-x64.zip
+          Get-FileHash dist/SiLing-0.1.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SiLing-0.1.0-windows-x64-${{ github.sha }}
+          path: |
+            dist/SiLing-0.1.0-windows-x64.zip
+            dist/SHA256SUMS.txt
+            apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            apps/desktop/src-tauri/Cargo.lock
+            .evidence/frozen-real-*.json
+          include-hidden-files: true
+          retention-days: 30
+  real-models:
+    runs-on: ubuntu-24.04
+    env:
+      SILING_MODEL_DIR: ${{ github.workspace }}/models
+      SILING_TEST_MODELS: "1"
+      SILING_TEST_FIXTURES: ${{ github.workspace }}/fixtures
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.lock
+      - run: python -m pip install --no-deps --no-build-isolation -e .
+      - run: python -m siling_voice models download
+      - name: Prepare explicit synthetic fixtures
+        run: |
+          curl -fL --retry 3 -o kokoro.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2
+          echo "259c9c8bc906d6078e4e0570421885dabb68b539c2f970fcbb890a58eeaf3e9c  kokoro.tar.bz2" | sha256sum -c -
+          tar -xjf kokoro.tar.bz2
+          python scripts/generate_fixtures.py kokoro-int8-multi-lang-v1_1 fixtures
+      - run: python -m pytest tests/test_real_models.py -q --junitxml=.evidence/real-models.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-test-inputs-${{ github.sha }}
+          path: fixtures
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-model-evidence-${{ github.sha }}
+          path: .evidence
+          include-hidden-files: true

@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from siling_voice.backends import SherpaBackend
 from siling_voice.cli import read_wav, replay
 from siling_voice.config import Settings, model_dir

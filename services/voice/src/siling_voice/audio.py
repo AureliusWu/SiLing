@@ -131,12 +131,14 @@ class Microphone:
         self.last_audio = time.monotonic()
 
     def close(self) -> None:
-        if self.stream is not None:
+        stream, self.stream = self.stream, None
+        if stream is not None:
             try:
-                self.stream.stop()
+                stream.abort()
+            except Exception:
+                pass
             finally:
-                self.stream.close()
-                self.stream = None
+                stream.close()
 
     def __exit__(self, *_: Any) -> None:
         self.close()
