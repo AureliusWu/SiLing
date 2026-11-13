@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "verified_at": "2026-11-13",
+  "source": "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases",
+  "assets": {
+    "kws": {
+      "filename": "kws.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2",
+      "sha256": "68447f4fbc67e70eee3a93961f36e81e98f47aef73ce7e7ca00885c6cd3616a6",
+      "bytes": 32885699,
+      "directory": "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20"
+    },
+    "asr": {
+      "filename": "asr.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+      "sha256": "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e",
+      "bytes": 163002883,
+      "directory": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17"
+    },
+    "vad": {
+      "filename": "silero_vad.onnx",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+      "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+      "bytes": 643854
+    }
+  }
+}

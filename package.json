@@ -1,0 +1,14 @@
+{
+  "name": "siling",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/desktop"],
+  "scripts": {
+    "dev": "npm run dev -w apps/desktop",
+    "build": "npm run build -w apps/desktop && node scripts/copy-web.mjs",
+    "typecheck": "npm run typecheck -w apps/desktop",
+    "lint": "npm run typecheck",
+    "tauri": "npm run tauri -w apps/desktop"
+  },
+  "engines": {"node": ">=22.12.0"}
+}

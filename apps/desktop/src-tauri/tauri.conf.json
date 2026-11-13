@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SiLing",
+  "version": "0.1.0",
+  "identifier": "io.siling.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{"label": "main", "title": "司聆 SiLing", "width": 880, "height": 860, "minWidth": 540, "minHeight": 650}],
+    "security": {"csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost http://127.0.0.1:*; img-src 'self' asset: data:"}
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": ["binaries/SiLing-Voice"],
+    "icon": ["icons/icon.ico"],
+    "windows": {"nsis": {"installMode": "currentUser", "displayLanguageSelector": false, "languages": ["SimpChinese"]}}
+  }
+}
