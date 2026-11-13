@@ -122,6 +122,13 @@ def serve(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    # Frozen Windows binaries can inherit cp1252/ASCII redirected streams.
+    # CLI diagnostics and Chinese transcripts must remain writable in CI and
+    # non-Chinese Windows locales, independently of the console code page.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="司聆：本地中文唤醒 MVP")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)

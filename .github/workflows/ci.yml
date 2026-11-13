@@ -11,6 +11,29 @@ concurrency:
   group: siling-ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  web-ui:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: python -m pip install -r requirements.lock
+      - run: python -m pip install --no-deps --no-build-isolation -e .
+      - run: npm ci && npm run typecheck && npm run build
+      - run: npm install --no-save --package-lock=false playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/ui_smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-evidence-${{ github.sha }}
+          path: .evidence
+          include-hidden-files: true
   python:
     strategy:
       fail-fast: false
@@ -42,7 +65,7 @@ jobs:
           include-hidden-files: true
   windows:
     runs-on: windows-2022
-    needs: [python, real-models]
+    needs: [python, real-models, web-ui]
     env:
       SILING_MODEL_DIR: ${{ github.workspace }}/models
       SILING_CONFIG_DIR: ${{ github.workspace }}/.ci-config
@@ -76,10 +99,7 @@ jobs:
           name: synthetic-test-inputs-${{ github.sha }}
           path: fixtures
       - name: Verify packaged real KWS VAD and ASR
-        run: |
-          .\dist\SiLing-Voice.exe models download
-          .\dist\SiLing-Voice.exe wav fixtures/positive-3.wav --output .evidence/frozen-real-female.json
-          .\dist\SiLing-Voice.exe wav fixtures/positive-58.wav --output .evidence/frozen-real-male.json
+        run: python scripts/frozen_real_smoke.py dist/SiLing-Voice.exe
       - name: Build Tauri Windows installer
         run: npm run tauri -- build
       - name: Prepare portable candidate and provenance
@@ -89,6 +109,7 @@ jobs:
           Copy-Item dist/SiLing-Voice.exe dist/portable/
           Copy-Item apps/desktop/src-tauri/target/release/siling-desktop.exe dist/portable/SiLing.exe
           Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/portable/
+          Copy-Item -Recurse dist/third-party-licenses dist/portable/
           '{"version":"0.1.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
           Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.1.0-windows-x64.zip
           Get-FileHash dist/SiLing-0.1.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt

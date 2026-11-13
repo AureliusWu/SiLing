@@ -10,6 +10,7 @@ from pathlib import Path
 if sys.platform != "win32":
     raise SystemExit("Windows runner required; cross-packaging is not supported")
 subprocess.run([sys.executable, "scripts/make_icon.py"], check=True)
+subprocess.run([sys.executable, "scripts/collect_notices.py"], check=True)
 subprocess.run(
     [
         sys.executable,

@@ -16,6 +16,7 @@
     "active": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/SiLing-Voice"],
+    "resources": {"../../../dist/third-party-licenses": "third-party-licenses"},
     "icon": ["icons/icon.ico"],
     "windows": {"nsis": {"installMode": "currentUser", "displayLanguageSelector": false, "languages": ["SimpChinese"]}}
   }

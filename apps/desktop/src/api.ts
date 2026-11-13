@@ -27,3 +27,7 @@ export async function api<T>(path: string, method = "GET", body?: unknown): Prom
   }
   return response.json() as Promise<T>;
 }
+
+export async function exitDesktop(): Promise<void> {
+  if (isTauri()) await invoke("exit_app");
+}

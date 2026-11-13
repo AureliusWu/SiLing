@@ -117,3 +117,70 @@ def test_events_are_bounded_and_cursor_works(client):
         controller.emit({"type": "metric", "value": i})
     assert len(controller.snapshot()["events"]) == 128
     assert len(controller.snapshot(after=298)["events"]) == 2
+
+
+@pytest.mark.parametrize("action", ["cancel", "mute"])
+def test_native_asr_late_result_is_suppressed(tmp_path, monkeypatch, action):
+    import numpy as np
+    from siling_voice.engine import FRAME
+
+    asr_started, release_asr = threading.Event(), threading.Event()
+    closed = threading.Event()
+
+    class Backend:
+        def reset(self):
+            pass
+
+        def keyword(self, frame):
+            return "你好司聆"
+
+        def speech(self, frame):
+            return bool(frame[0] > 0)
+
+        def transcribe(self, samples):
+            asr_started.set()
+            release_asr.wait(3)
+            return "This late private transcript must be suppressed"
+
+    class FakeMic:
+        def __init__(self, device):
+            self.index = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+        def read(self):
+            time.sleep(0.001)
+            self.index += 1
+            return [np.full(FRAME, 0.2 if self.index < 30 else 0, dtype=np.float32)]
+
+        def flush(self):
+            pass
+
+        def close(self):
+            closed.set()
+
+    monkeypatch.setattr("siling_voice.controller.SherpaBackend", lambda *args: Backend())
+    monkeypatch.setattr("siling_voice.controller.Microphone", FakeMic)
+    controller = Controller(Settings(chime=False), tmp_path)
+    try:
+        controller.start()
+        assert asr_started.wait(3)
+        if action == "mute":
+            controller.mute()
+            assert closed.is_set()
+        else:
+            controller.command("cancel")
+        release_asr.set()
+        if action == "cancel":
+            wait_for(lambda: controller.state == "IDLE")
+        else:
+            controller.thread.join(2)
+            assert controller.state == "MUTED"
+        assert not any(e["type"] == "transcript" for e in controller.snapshot()["events"])
+    finally:
+        release_asr.set()
+        controller.mute()

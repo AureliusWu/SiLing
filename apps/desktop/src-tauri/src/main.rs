@@ -13,6 +13,11 @@ fn service_info(service: tauri::State<VoiceService>) -> Connection {
     service.connection.clone()
 }
 
+#[tauri::command]
+fn exit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn start_service() -> Result<VoiceService, Box<dyn std::error::Error>> {
     let directory = tempfile::Builder::new().prefix("siling-session-").tempdir()?;
     let ready = directory.path().join("ready.json");
@@ -54,7 +59,7 @@ fn start_service() -> Result<VoiceService, Box<dyn std::error::Error>> {
 
 fn main() {
     let application = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![service_info])
+        .invoke_handler(tauri::generate_handler![service_info, exit_app])
         .setup(|app| {
             app.manage(start_service()?);
             let show = MenuItem::with_id(app, "show", "打开司聆", true, None::<&str>)?;

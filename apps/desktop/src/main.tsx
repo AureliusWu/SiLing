@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import {createRoot} from "react-dom/client";
 import type {Device, Settings, Status, VoiceEvent} from "../../../packages/contracts";
-import {api, connect} from "./api";
+import {api, connect, exitDesktop} from "./api";
 import "./style.css";
 
 const labels = {IDLE: "等待唤醒", WAKE_DETECTED: "已唤醒", LISTENING: "正在听你说", TRANSCRIBING: "正在本地转写", MUTED: "麦克风已释放", ERROR: "需要处理", STOPPING: "正在停止"};
@@ -68,7 +68,7 @@ function App() {
     try {
       await api("control", "POST", {action});
       if (action === "clear" || action === "mute") setMessages([]);
-      if (action === "exit") {setReady(false); setError("司聆已退出，麦克风已释放。可以关闭本窗口。"); mounted.current = false;}
+      if (action === "exit") {setReady(false); setError("司聆已退出，麦克风已释放。可以关闭本窗口。"); mounted.current = false; await exitDesktop();}
     } catch (e) {setError(e instanceof Error ? e.message : String(e));}
     finally {setBusy(false);}
   }
@@ -91,7 +91,7 @@ function App() {
       <p>{status?.state === "LISTENING" ? "请说一句中文，停顿后自动完成转写" : `开始监听后，说「${status?.settings.wake_word || "你好司聆"}」`}</p>
       <div className="meter" role="meter" aria-label="麦克风输入音量" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((status?.level || 0) * 100)}><i style={{width: `${(status?.level || 0) * 100}%`}}/></div>
       <div className="actions">
-        <button className="primary" disabled={!ready || busy || status?.loading} onClick={() => void control(status?.running ? "mute" : "start")}>{status?.running ? "静音并释放麦克风" : "开始监听"}</button>
+        <button className="primary" disabled={!ready || busy} onClick={() => void control(status?.running ? "mute" : "start")}>{status?.running ? "静音并释放麦克风" : "开始监听"}</button>
         <button disabled={!ready || busy || status?.state !== "IDLE"} onClick={() => void control("wake")}>手动唤醒</button>
         <button disabled={!ready || busy || !status?.running} onClick={() => void control("cancel")}>取消本次</button>
       </div>
