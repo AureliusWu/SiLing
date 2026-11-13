@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from . import __version__
 from .audio import AudioFailure
@@ -21,6 +23,16 @@ from .controller import Controller
 
 class Action(BaseModel):
     action: str
+
+
+class Message(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class Credential(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: SecretStr = Field(min_length=1, max_length=4096)
 
 
 def create_app(controller: Controller, token: str | None = None) -> FastAPI:
@@ -40,6 +52,14 @@ def create_app(controller: Controller, token: str | None = None) -> FastAPI:
         openapi_url=None,
     )
     app.state.token = session_token
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+        # FastAPI normally echoes invalid input values; never reflect credentials.
+        if request.url.path.startswith("/api/credential"):
+            return JSONResponse({"detail": "API_KEY_INVALID"}, status_code=422)
+        return JSONResponse({"detail": "SETTINGS_OR_INPUT_INVALID"}, status_code=422)
+
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
     )
@@ -101,13 +121,34 @@ def create_app(controller: Controller, token: str | None = None) -> FastAPI:
                 controller.mute()
                 if hasattr(app.state, "shutdown"):
                     app.state.shutdown()
-            elif body.action in {"wake", "cancel"}:
+            elif body.action in {"wake", "cancel", "ptt_start", "ptt_stop"}:
                 controller.command(body.action)
             else:
                 raise HTTPException(400, "UNKNOWN_ACTION")
         except RuntimeError as error:
             raise HTTPException(409, str(error)) from error
         return {"ok": True}
+
+    @app.post("/api/chat", dependencies=secured)
+    def chat(body: Message) -> dict:
+        try:
+            controller.chat(body.text)
+        except (ValueError, RuntimeError) as error:
+            raise HTTPException(409, str(error)) from error
+        return {"ok": True}
+
+    @app.post("/api/credential", dependencies=secured)
+    def credential(body: Credential) -> dict:
+        try:
+            controller.keys.set(body.key.get_secret_value())
+        except (RuntimeError, ValueError) as error:
+            raise HTTPException(400, str(error)) from error
+        return {"configured": True}
+
+    @app.post("/api/credential/delete", dependencies=secured)
+    def delete_credential() -> dict:
+        controller.keys.delete()
+        return {"configured": controller.keys.configured()}
 
     @app.put("/api/settings", dependencies=secured)
     def settings(body: Settings) -> dict:

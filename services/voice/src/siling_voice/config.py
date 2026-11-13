@@ -4,6 +4,8 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -31,6 +33,33 @@ class Settings(BaseModel):
     kws_threshold: float = Field(default=0.25, ge=0.05, le=0.9)
     num_threads: int = Field(default=2, ge=1, le=8)
     chime: bool = True
+    provider: Literal["disabled", "mock", "ollama", "compatible"] = "disabled"
+    api_base: str = "http://127.0.0.1:11434/v1"
+    llm_model: str = "qwen3:4b"
+    cloud_consent: bool = False
+    request_timeout_s: int = Field(default=30, ge=2, le=120)
+    context_turns: int = Field(default=6, ge=1, le=12)
+    tts: Literal["off", "mock", "kokoro", "system"] = "off"
+    tts_speaker: int = Field(default=3, ge=0, le=102)
+    tts_speed: float = Field(default=1.0, ge=0.7, le=1.5)
+    save_history: bool = False
+
+    @field_validator("api_base")
+    @classmethod
+    def endpoint(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username
+            or parts.password
+            or parts.query
+            or parts.fragment
+        ):
+            raise ValueError("API 地址格式无效")
+        if parts.scheme == "http" and parts.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("云端 API 必须使用 HTTPS，本机服务可使用 HTTP")
+        return value.rstrip("/")
 
     @field_validator("wake_word")
     @classmethod
@@ -45,7 +74,27 @@ class Settings(BaseModel):
             raise ValueError("等待开口时限必须小于最长录音时限")
         if self.min_speech_ms >= self.max_record_ms:
             raise ValueError("最短语音时长必须小于最长录音时限")
+        if self.provider == "ollama" and urlsplit(self.api_base).hostname not in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        }:
+            raise ValueError("Ollama 本地模式仅允许 loopback 地址")
+        if self.provider in {"ollama", "compatible"} and not self.llm_model.strip():
+            raise ValueError("请填写模型 ID")
+        if len(self.llm_model) > 120 or any(ord(c) < 32 for c in self.llm_model):
+            raise ValueError("模型 ID 无效")
+        if self.is_cloud and not self.cloud_consent:
+            raise ValueError("启用云端 API 前需同意发送转写文本与对话上下文")
         return self
+
+    @property
+    def is_cloud(self) -> bool:
+        return self.provider == "compatible" and urlsplit(self.api_base).hostname not in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        }
 
 
 def load_settings(path: Path | None = None) -> Settings:

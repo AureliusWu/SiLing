@@ -1,8 +1,8 @@
-name: SiLing R0 R1 validation and Windows build
+name: SiLing validation and Windows build
 on:
   push:
     branches: [main]
-    paths-ignore: ["docs/**", "README.md", "LICENSE", "CHANGELOG.md"]
+    paths-ignore: ["docs/**", "README.md", "LICENSE", "CHANGELOG.md", ".github/workflows/model-support.yml"]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -52,6 +52,7 @@ jobs:
       - run: python -m ruff format --check services tests scripts
       - run: python -m mypy services/voice/src
       - run: python -m pytest -q --junitxml=.evidence/pytest.xml --cov=siling_voice --cov-report=xml:.evidence/coverage.xml
+      - run: python scripts/r2_smoke.py
       - run: python -m siling_voice doctor
       - run: python -m build --no-isolation
       - uses: actions/upload-artifact@v4
@@ -92,6 +93,8 @@ jobs:
       - run: python scripts/package_windows.py
       - name: Check native dependency loading
         run: .\dist\SiLing-Voice.exe doctor
+      - name: Frozen AI protocol and cancellation
+        run: python scripts/r2_smoke.py --frozen dist/SiLing-Voice.exe
       - name: Exercise frozen service and fake audio
         run: python scripts/frozen_smoke.py dist/SiLing-Voice.exe
       - uses: actions/download-artifact@v4
@@ -110,15 +113,15 @@ jobs:
           Copy-Item apps/desktop/src-tauri/target/release/siling-desktop.exe dist/portable/SiLing.exe
           Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/portable/
           Copy-Item -Recurse dist/third-party-licenses dist/portable/
-          '{"version":"0.1.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
-          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.1.0-windows-x64.zip
-          Get-FileHash dist/SiLing-0.1.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
+          '{"version":"0.2.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.2.0-windows-x64.zip
+          Get-FileHash dist/SiLing-0.2.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: SiLing-0.1.0-windows-x64-${{ github.sha }}
+          name: SiLing-0.2.0-windows-x64-${{ github.sha }}
           path: |
-            dist/SiLing-0.1.0-windows-x64.zip
+            dist/SiLing-0.2.0-windows-x64.zip
             dist/SHA256SUMS.txt
             apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
             apps/desktop/src-tauri/Cargo.lock
@@ -130,6 +133,7 @@ jobs:
     env:
       SILING_MODEL_DIR: ${{ github.workspace }}/models
       SILING_TEST_MODELS: "1"
+      SILING_TEST_TTS: "1"
       SILING_TEST_FIXTURES: ${{ github.workspace }}/fixtures
     steps:
       - uses: actions/checkout@v4
@@ -145,7 +149,8 @@ jobs:
           echo "259c9c8bc906d6078e4e0570421885dabb68b539c2f970fcbb890a58eeaf3e9c  kokoro.tar.bz2" | sha256sum -c -
           tar -xjf kokoro.tar.bz2
           python scripts/generate_fixtures.py kokoro-int8-multi-lang-v1_1 fixtures
-      - run: python -m pytest tests/test_real_models.py -q --junitxml=.evidence/real-models.xml
+          python -m siling_voice tts install --from kokoro.tar.bz2
+      - run: python -m pytest tests/test_real_models.py tests/test_real_dialogue.py -q --junitxml=.evidence/real-models.xml
       - uses: actions/upload-artifact@v4
         with:
           name: synthetic-test-inputs-${{ github.sha }}

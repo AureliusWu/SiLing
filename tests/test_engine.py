@@ -152,3 +152,20 @@ def test_repeated_wake_is_deduplicated_and_cooldown_applies(rig):
 def test_bad_frame_fails_early(rig):
     with pytest.raises(ValueError):
         rig[0].feed(np.zeros(10, dtype=np.float32))
+
+
+def test_push_to_talk_keeps_listening_during_pause_until_release(rig):
+    engine, backend, _ = rig
+    engine.begin_ptt()
+    feed(engine, 0.5, True)
+    feed(engine, 1)
+    assert engine.state == State.LISTENING and backend.calls == 0
+    engine.end_ptt()
+    assert backend.calls == 1 and engine.state == State.IDLE
+
+
+def test_push_to_talk_is_still_time_bounded(rig):
+    engine, backend, _ = rig
+    engine.begin_ptt()
+    feed(engine, 16, True)
+    assert backend.calls == 1 and engine.state == State.IDLE

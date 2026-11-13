@@ -40,6 +40,15 @@ const path = require('node:path');
     await page.getByLabel('中文唤醒词', {exact:true}).fill('小爱同学');
     await page.getByRole('button', {name:'保存设置并停止监听', exact:true}).click();
     await page.getByText('开始监听后，说「小爱同学」', {exact:true}).waitFor();
+    await page.getByText('AI 与播报设置', {exact:true}).click();
+    await page.getByLabel('对话服务', {exact:true}).selectOption('mock');
+    await page.getByLabel('中文播报', {exact:true}).selectOption('mock');
+    await page.getByRole('button', {name:'保存 AI 与播报设置', exact:true}).click();
+    for (let turn = 1; turn <= 3; turn++) {
+      await page.getByLabel('文字消息', {exact:true}).fill('中文对话测试');
+      await page.getByRole('button', {name:'发送', exact:true}).click();
+      await page.getByText(`这是第${turn}轮模拟回复。真实 AI 服务尚未调用。`, {exact:true}).waitFor();
+    }
     await page.getByRole('button', {name:'完全退出司聆', exact:true}).click();
     await page.getByRole('alert').filter({hasText:'司聆已退出'}).waitFor();
     if (errors.length) throw new Error(errors.join('\n'));

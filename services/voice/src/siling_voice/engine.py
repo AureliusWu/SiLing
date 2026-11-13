@@ -27,6 +27,9 @@ class State(StrEnum):
     WAKE_DETECTED = "WAKE_DETECTED"
     LISTENING = "LISTENING"
     TRANSCRIBING = "TRANSCRIBING"
+    THINKING = "THINKING"
+    ACTING = "ACTING"
+    SPEAKING = "SPEAKING"
     MUTED = "MUTED"
     ERROR = "ERROR"
     STOPPING = "STOPPING"
@@ -54,6 +57,7 @@ class Engine:
         self.ignore_until = 0
         self.sequence = 0
         self.cancelled_audio = False
+        self.ptt = False
         self._clear_recording()
 
     def _clear_recording(self) -> None:
@@ -80,6 +84,7 @@ class Engine:
         self.transition(State.IDLE)
 
     def cancel(self, mute: bool = False) -> None:
+        self.ptt = False
         self.cancelled_audio = True
         self._clear_recording()
         self.backend.reset()
@@ -101,6 +106,15 @@ class Engine:
         self._clear_recording()
         self.emit({"type": "error", "code": code})
         self.transition(State.ERROR, code)
+
+    def begin_ptt(self) -> None:
+        self.wake(manual=True)
+        self.ptt = self.state == State.LISTENING
+
+    def end_ptt(self) -> None:
+        if self.ptt and self.state == State.LISTENING:
+            self.ptt = False
+            self._finish("push_to_talk_release")
 
     def feed(self, frame: Audio) -> None:
         if len(frame) != FRAME:
@@ -126,11 +140,15 @@ class Engine:
             self.quiet = 0
         elif self.chunks:
             self.quiet += len(frame)
-        if not self.chunks and self.elapsed >= self.settings.speech_wait_ms * RATE // 1000:
+        if (
+            not self.ptt
+            and not self.chunks
+            and self.elapsed >= self.settings.speech_wait_ms * RATE // 1000
+        ):
             self._finish("no_speech")
         elif self.elapsed >= self.settings.max_record_ms * RATE // 1000:
             self._finish("max_duration")
-        elif self.chunks and self.quiet >= self.settings.silence_ms * RATE // 1000:
+        elif not self.ptt and self.chunks and self.quiet >= self.settings.silence_ms * RATE // 1000:
             self._finish("silence")
 
     def _finish(self, reason: str) -> None:

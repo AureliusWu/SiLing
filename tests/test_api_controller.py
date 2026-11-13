@@ -184,3 +184,15 @@ def test_native_asr_late_result_is_suppressed(tmp_path, monkeypatch, action):
     finally:
         release_asr.set()
         controller.mute()
+
+
+def test_keyboard_dialogue_without_microphone_and_credential_privacy(client):
+    http, controller = client
+    controller.update(Settings(provider="mock", tts="mock"))
+    assert http.post("/api/chat", json={"text": "你好"}, headers=AUTH).status_code == 200
+    wait_for(lambda: not controller.dialogue.active)
+    response = http.get("/api/status", headers=AUTH).json()
+    assert any(e["type"] == "assistant" for e in response["events"])
+    assert response["running"] is False and response["state"] == "MUTED"
+    r = http.post("/api/credential", json={"key": ""}, headers=AUTH)
+    assert r.status_code == 422 and r.json() == {"detail": "API_KEY_INVALID"}

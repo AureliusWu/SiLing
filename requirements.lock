@@ -24,3 +24,7 @@ uvicorn==0.52.1
 setuptools==84.2.1
 wheel==0.48.0
 colorama==0.4.6; sys_platform == "win32"
+
+httpx==0.28.1
+httpcore==1.0.9
+certifi==2026.10.23

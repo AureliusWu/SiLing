@@ -78,4 +78,4 @@ def test_model_asset_hash_rejects_tampering(tmp_path):
 def test_no_credentials_in_default_settings():
     encoded = json.dumps(Settings().model_dump())
     assert "api_key" not in encoded
-    assert "cloud" not in encoded
+    assert not Settings().is_cloud

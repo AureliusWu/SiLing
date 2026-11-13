@@ -143,6 +143,11 @@ def main() -> None:
     model = sub.add_parser("models", help="显式下载/校验模型")
     model.add_argument("operation", choices=["download", "verify", "install"])
     model.add_argument("--from", dest="source", type=Path, help="离线官方归档目录")
+    tts = sub.add_parser("tts", help="显式下载/校验本地中文播报模型")
+    tts.add_argument("operation", choices=["download", "verify", "install", "synthesize"])
+    tts.add_argument("--from", dest="source", type=Path)
+    tts.add_argument("--text", default="你好，我是司聆。")
+    tts.add_argument("--output", type=Path)
     wav = sub.add_parser("wav", help="本地 WAV 完整 KWS -> VAD -> ASR 回放；会输出文本")
     wav.add_argument("path", type=Path)
     wav.add_argument("--wake-word", default="你好司聆")
@@ -165,6 +170,37 @@ def main() -> None:
                     parser.error("models install requires --from")
                 install(model_dir(), args.source)
             print("Models: SHA256_VERIFIED")
+        elif args.command == "tts":
+            from .tts import Kokoro, install_tts, verify_tts
+
+            if args.operation == "synthesize":
+                if not args.output or not 1 <= len(args.text) <= 200:
+                    parser.error("tts synthesize requires --output and 1–200 characters")
+                samples, rate = Kokoro(model_dir(), load_settings()).generate(
+                    args.text, threading.Event()
+                )
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                with wave.open(str(args.output), "wb") as out:
+                    out.setnchannels(1)
+                    out.setsampwidth(2)
+                    out.setframerate(rate)
+                    out.writeframes((np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes())
+                print(
+                    json.dumps(
+                        {
+                            "samples": len(samples),
+                            "sample_rate": rate,
+                            "hardware_acceptance": "NOT_VERIFIED",
+                        }
+                    )
+                )
+            elif args.operation == "verify":
+                verify_tts(model_dir())
+            else:
+                if args.operation == "install" and args.source is None:
+                    parser.error("tts install requires --from")
+                install_tts(model_dir(), args.source)
+            print("TTS: SHA256_VERIFIED")
         elif args.command == "doctor":
             from .audio import AudioFailure, devices
             from .backends import native_versions
