@@ -1,0 +1,55 @@
+{
+  "phase": "R2-R4",
+  "source_commit": "978c9a7b71b919ed82c4d0a613adb07fa460cc29",
+  "ci_run": 43353517604,
+  "ci_url": "https://github.com/AureliusWu/SiLing/actions/runs/43353517604",
+  "result": "PASS",
+  "jobs": {
+    "web-ui": "PASS",
+    "python_windows": "72 passed, 10 model tests skipped to independent job",
+    "python_linux": "71 passed, 11 skipped (10 models + Windows DPAPI)",
+    "real_models": "10 passed, 36.38 s",
+    "windows_build_install_native": "PASS"
+  },
+  "native_desktop": {
+    "diagnostic_download": true,
+    "hardware_acceptance": "NOT_VERIFIED",
+    "initial_muted": true,
+    "initial_service_pid": 1048,
+    "mini_window": true,
+    "native_start": true,
+    "recovered_service_pid": 1196,
+    "service_restart": true,
+    "no_orphan_server": true
+  },
+  "windows_install": {
+    "hardware_acceptance": "NOT_VERIFIED",
+    "silent_install": true,
+    "autostart_registry": true,
+    "silent_uninstall": true,
+    "autostart_cleanup": true
+  },
+  "frozen_tts": {
+    "real_kokoro_pcm": true,
+    "sample_rate": 24000,
+    "duration_s": 3.725,
+    "hardware_acceptance": "NOT_VERIFIED"
+  },
+  "artifact_verification": {
+    "zip_sha256": "5fb0454c0aae3207c39ab179e3f32059ae8b2c7978704ccf318b484bb704cdcf",
+    "files_verified": 98,
+    "bytes": 92165830,
+    "build": {
+      "version": "0.4.0",
+      "commit": "978c9a7b71b919ed82c4d0a613adb07fa460cc29",
+      "built_at_utc": "2026-11-13T02:45:34.668760+00:00",
+      "hardware_acceptance": "NOT_VERIFIED",
+      "models_bundled": false,
+      "signed": false
+    },
+    "pe_machine": "x64",
+    "cargo_lock_matches": true
+  },
+  "hardware_acceptance": "NOT_VERIFIED",
+  "live_cloud_ollama": "NOT_VERIFIED"
+}

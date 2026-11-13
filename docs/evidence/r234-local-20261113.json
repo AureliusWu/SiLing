@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-13",
+  "phase": "R2-R4",
+  "version": "0.4.0",
+  "python_tests_source_commit": "fb5d6c03dbde6e32f1b19f8d1c03857bbfa14dce",
+  "platform": "Linux x86_64",
+  "python": "3.12.14",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "1",
+    "tests": "82",
+    "time": "67.410",
+    "timestamp": "2026-11-13T02:28:57.546139+00:00",
+    "hostname": "247a3e0559ae"
+  },
+  "coverage_percent": 65.41436464088397,
+  "actual_http_protocol_smoke": "PASS",
+  "real_cloud_llm": "NOT_VERIFIED",
+  "real_ollama_model": "NOT_VERIFIED",
+  "hardware_acceptance": "NOT_VERIFIED",
+  "real_models": "KWS/VAD/ASR and Kokoro waveform synthesis; mock LLM and speaker sink",
+  "skipped_reason": "Windows user-scoped DPAPI; tested separately on Windows CI",
+  "r3_ci": "https://github.com/AureliusWu/SiLing/actions/runs/43351256307",
+  "r3_commit": "70160270d2d5bb4baca73a6781e083ef50267b93"
+}

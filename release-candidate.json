@@ -1,0 +1,8 @@
+{
+  "version": "0.4.0",
+  "tag": "v0.4.0-rc.1",
+  "validated_base_commit": "978c9a7b71b919ed82c4d0a613adb07fa460cc29",
+  "validation_run": 43353517604,
+  "hardware_acceptance": "NOT_VERIFIED",
+  "signed": false
+}

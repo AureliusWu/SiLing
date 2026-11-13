@@ -67,7 +67,10 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as arch
     for file in sorted(root.rglob("*")):
         if file.is_file():
             archive.write(file, file.relative_to(root).as_posix())
-Path("dist/SHA256SUMS.txt").write_text(
-    f"{hashlib.file_digest(output.open('rb'), 'sha256').hexdigest()}  {output.name}\n", "utf-8"
-)
+asset_sums = []
+for asset in [output, *sorted((root / "installer").glob("*-setup.exe"))]:
+    with asset.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    asset_sums.append(f"{digest}  {asset.name}")
+Path("dist/SHA256SUMS.txt").write_text("\n".join(asset_sums) + "\n", "utf-8")
 print(f"Candidate prepared: {output.name}, {output.stat().st_size} bytes")
