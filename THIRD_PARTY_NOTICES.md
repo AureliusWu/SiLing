@@ -10,7 +10,7 @@
 | numpy / soxr | 2.5.4 / 1.1.0 | NumPy BSD-3-Clause；python-soxr LGPL-2.1-or-later，动态原生库与 wheel 保留原始 notices，最终再分发须核验相应义务 |
 | FastAPI / uvicorn / Pydantic | 0.162.5 / 0.52.1 / 2.14.3 | 官方 PyPI 与项目仓库，MIT / BSD-3-Clause / MIT |
 | React / Vite / TypeScript | 19.2.0 / 7.2.2 / 5.9.3 | 官方 npm，MIT / MIT / Apache-2.0；package-lock.json 固定依赖树与完整性 |
-| Tauri | 2.x，实际解析见 Cargo.lock | [官方](https://v2.tauri.app/)，MIT / Apache-2.0；CLI 固定 2.9.4，API 固定 2.9.0 |
+| Tauri | 2.12.5 / tauri-build 2.7.4，见 Cargo.lock | [官方](https://v2.tauri.app/)，MIT / Apache-2.0；CLI 固定 2.9.4，API 固定 2.9.0 |
 | 中文 KWS | zipformer-zh-en-3M-2025-12-20 | [官方模型文档](https://k2-fsa.github.io/sherpa/onnx/kws/pretrained_models/index.html)、[官方发布](https://github.com/k2-fsa/sherpa-onnx/releases/tag/kws-models)。分发档案未发现独立权重 LICENSE，不能直接把代码 Apache-2.0 等同于权重许可；此项保持 NOT_VERIFIED，正式捆绑分发前需确认。候选安装包不捆绑权重 |
 | Silero VAD | 官方 silero_vad.onnx，643,854 bytes | [官方模型文档](https://k2-fsa.github.io/sherpa/onnx/vad/silero-vad.html)、[Silero 上游](https://github.com/snakers4/silero-vad)，MIT |
 | SenseVoiceSmall int8 | 2024-07-17 | [官方文档](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html)。权重采用 [FunASR MODEL_LICENSE 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)，与代码 MIT 不同；保留原模型名、来源与作者。归档 LICENSE 指向上游条款。HF 官方模型卡同样指向此协议 |

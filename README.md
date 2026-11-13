@@ -81,7 +81,7 @@ npm run build
 ```
 
 完整模型测试需设置 `SILING_TEST_MODELS=1`。默认词的合成音频测试额外需要
-`SILING_TEST_FIXTURES` 指向 CI 的 `siling-synthetic-fixtures` 解压目录。
+`SILING_TEST_FIXTURES` 指向 CI 的 `synthetic-test-inputs-<commit>` 解压目录。
 未提供时测试会明确 SKIP，不能据此声称默认词声学测试通过。
 样本为 Kokoro 合成音频，不是真人录音。真实 Windows 测试按
 [本机验收步骤](docs/windows-acceptance.md) 执行。

@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-13",
+  "source_commit": "eda566dbc51fd8ff3de0aef6c4a63f47e0053541",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "hardware_acceptance": "NOT_VERIFIED",
+  "real_fixtures": {
+    "female": {
+      "source": "Kokoro synthetic WAV, not microphone",
+      "duration_ms": 5480,
+      "transcripts": [
+        {
+          "type": "transcript",
+          "text": "打开记事本。",
+          "session": 1,
+          "asr_ms": 167.2
+        }
+      ],
+      "final_state": "IDLE"
+    },
+    "male": {
+      "source": "Kokoro synthetic WAV, not microphone",
+      "duration_ms": 5556,
+      "transcripts": [
+        {
+          "type": "transcript",
+          "text": "打开记事本。",
+          "session": 1,
+          "asr_ms": 176.6
+        }
+      ],
+      "final_state": "IDLE"
+    }
+  },
+  "checks": {
+    "ruff": "PASS",
+    "ruff_format": "PASS",
+    "mypy": "PASS",
+    "typescript": "PASS",
+    "vite_build": "PASS",
+    "windows_hardware": "NOT_VERIFIED"
+  },
+  "pytest": {
+    "tests": "50",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "24.349"
+  },
+  "coverage_percent": 65.02
+}

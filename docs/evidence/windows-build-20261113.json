@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0",
+  "code_commit": "eda566dbc51fd8ff3de0aef6c4a63f47e0053541",
+  "workflow_run": 43342056992,
+  "artifact_id": 14001010217,
+  "all_jobs": "PASS",
+  "archive_sha256": "9281ad3876695fdcadfb8da575600551a3db6f4f96a701433ecc7adcc43a0315",
+  "portable_sha256": "3815adcf7ac4b779315b85e13ecd9dfbf5f4bf9e33fe03110e7dd67a10822886",
+  "installer_sha256": "a33a7209a96e345398a45ca2ca3f6289d43918eca7c442be613fe1aec1a4526e",
+  "hardware_acceptance": "NOT_VERIFIED",
+  "windows_frozen_transcripts": {
+    "female": [
+      {
+        "type": "transcript",
+        "text": "打开记事本。",
+        "session": 1,
+        "asr_ms": 158.6
+      }
+    ],
+    "male": [
+      {
+        "type": "transcript",
+        "text": "打开记事本。",
+        "session": 1,
+        "asr_ms": 165.1
+      }
+    ]
+  }
+}
