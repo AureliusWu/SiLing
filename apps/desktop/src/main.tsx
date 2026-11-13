@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import {createRoot} from "react-dom/client";
 import type {Device, Settings, Status, VoiceEvent, ToolConfig, Target} from "../../../packages/contracts";
-import {api, connect, exitDesktop, inDesktop, toggleMini} from "./api";
+import {api, connect, exitDesktop, inDesktop, toggleMini, exportDiagnostics} from "./api";
 import "./style.css";
 
 const labels = {IDLE: "等待唤醒", WAKE_DETECTED: "已唤醒", LISTENING: "正在听你说", TRANSCRIBING: "正在本地转写", THINKING: "正在思考", ACTING: "等待工具处理", SPEAKING: "正在播报", MUTED: "麦克风已释放", ERROR: "需要处理", STOPPING: "正在停止"};
@@ -129,7 +129,7 @@ function App() {
   if (mini) return <main className="mini-window"><div data-tauri-drag-region className="mini-title">司聆 · {status ? labels[status.state] : "连接中"}</div><div className="meter"><i style={{width:`${(status?.level || 0)*100}%`}}/></div><div className="actions"><button onClick={() => void control(status?.running ? "mute" : "start")}>{status?.running ? "静音" : "监听"}</button><button onPointerDown={e => {e.currentTarget.setPointerCapture(e.pointerId);pttStart.current=control("ptt_start");}} onPointerUp={() => {void pttStart.current.then(() => control("ptt_stop"));}} onPointerCancel={() => void control("cancel")}>按住说话</button><button onClick={() => void control("cancel")}>停止</button></div><small>{status?.cloud ? "云端 AI · 音频本地" : "本地语音"}</small></main>;
   const listening = status?.state === "IDLE" || status?.state === "LISTENING";
   return <main>
-    <header><div><span className="eyebrow">SiLing · 0.3.0</span><h1>司聆</h1></div><span className="privacy">{status?.cloud ? "● 云端 AI · 本地语音" : "● 本地语音处理"}</span></header>
+    <header><div><span className="eyebrow">SiLing · 0.4.0</span><h1>司聆</h1></div><span className="privacy">{status?.cloud ? "● 云端 AI · 本地语音" : "● 本地语音处理"}</span></header>
     <section className="voice" aria-label="语音状态">
       {status?.mode === "demo" && <p className="demo">模拟演示 · 不采集麦克风，不进行真实语音识别</p>}
       <div className={`orb ${listening ? "active" : ""}`} aria-hidden="true">聆</div>
@@ -183,6 +183,7 @@ function App() {
       <button disabled={!target.id || !target.label || !target.path} onClick={addTarget}>加入配置列表</button><button onClick={() => void saveTools()}>保存白名单</button>
       <label className="check"><input type="checkbox" checked={status?.autostart || false} onChange={e => {void api("desktop/autostart","POST",{enabled:e.target.checked}).catch(x => setError(x.message));}}/>登录 Windows 时启动司聆（初始不录音）</label>
       <button disabled={!inDesktop()} onClick={() => {void toggleMini();}}>显示/隐藏悬浮窗</button>
+      <button onClick={() => {void exportDiagnostics().then(path => setError(path)).catch(e => setError(e.message));}}>导出脱敏诊断包</button>
     </div></details>}
     <footer><p>音频始终本地处理；历史默认不保存。思考和播报期间释放麦克风，使用「按住说话」或停止按钮打断。</p><button disabled={!ready || busy} onClick={() => void control("exit")}>完全退出司聆</button></footer>
   </main>;

@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool
 
@@ -19,6 +19,7 @@ from . import __version__
 from .audio import AudioFailure
 from .config import Settings
 from .controller import Controller
+from .diagnostics import diagnostic_zip, safe_report
 from .tools import ToolConfig
 from .windows import discover_apps, set_autostart
 
@@ -189,6 +190,18 @@ def create_app(controller: Controller, token: str | None = None) -> FastAPI:
         except (OSError, RuntimeError) as error:
             raise HTTPException(400, str(error)) from None
         return {"enabled": body.enabled}
+
+    @app.get("/api/diagnostics", dependencies=secured)
+    def diagnostics() -> dict:
+        return safe_report(controller)
+
+    @app.get("/api/diagnostics/download", dependencies=secured)
+    def diagnostics_download() -> Response:
+        return Response(
+            diagnostic_zip(controller),
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="SiLing-diagnostics.zip"'},
+        )
 
     @app.put("/api/settings", dependencies=secured)
     def settings(body: Settings) -> dict:

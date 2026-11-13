@@ -14,7 +14,7 @@
 | 中文 KWS | zipformer-zh-en-3M-2025-12-20 | [官方模型文档](https://k2-fsa.github.io/sherpa/onnx/kws/pretrained_models/index.html)、[官方发布](https://github.com/k2-fsa/sherpa-onnx/releases/tag/kws-models)。分发档案未发现独立权重 LICENSE，不能直接把代码 Apache-2.0 等同于权重许可；此项保持 NOT_VERIFIED，正式捆绑分发前需确认。候选安装包不捆绑权重 |
 | Silero VAD | 官方 silero_vad.onnx，643,854 bytes | [官方模型文档](https://k2-fsa.github.io/sherpa/onnx/vad/silero-vad.html)、[Silero 上游](https://github.com/snakers4/silero-vad)，MIT |
 | SenseVoiceSmall int8 | 2024-07-17 | [官方文档](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html)。权重采用 [FunASR MODEL_LICENSE 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)，与代码 MIT 不同；保留原模型名、来源与作者。归档 LICENSE 指向上游条款。HF 官方模型卡同样指向此协议 |
-| Kokoro（仅生成测试数据） | v1.1-zh int8，speakers 3 / 58 | [官方模型](https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh)，Apache-2.0；[sherpa 使用文档](https://k2-fsa.github.io/sherpa/onnx/tts/all/Chinese-English/kokoro-multi-lang-v1_1.html)。不构成 R2 TTS 集成，不在 R1 运行时下载或打包 |
+| Kokoro 中文播报/合成样本 | v1.1-zh int8，speakers 3 / 58 | [官方模型](https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh)，Apache-2.0；[sherpa 使用文档](https://k2-fsa.github.io/sherpa/onnx/tts/all/Chinese-English/kokoro-multi-lang-v1_1.html)。R2 已集成本地 TTS，需用户显式 `tts download`；归档147,052,523 bytes，SHA-256 固定在 tts.py；安装包不含权重 |
 
 完整 Python 运行时与开发锁分别见 requirements.lock、requirements-dev.lock。
 所有模型下载 URL、字节数和 SHA-256 见 services/voice/src/siling_voice/models.lock.json；

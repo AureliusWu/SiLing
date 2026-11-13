@@ -74,12 +74,12 @@ mod platform {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-struct Connection { url: String, token: String }
+struct Connection { url: String, token: String, pid: u32 }
 struct Runtime {
     child: Child,
     connection: Connection,
     _directory: tempfile::TempDir,
-    #[cfg(windows)] _job: platform::Job,
+    #[cfg(windows)] _job: Option<platform::Job>,
 }
 struct VoiceService { runtime: Mutex<Runtime>, stopping: AtomicBool }
 
@@ -91,7 +91,7 @@ fn service_info(service: tauri::State<VoiceService>) -> Result<Connection, Strin
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle) { app.exit(0); }
 
-fn request(connection: &Connection, path: &str, body: Option<Value>) -> Result<Value, String> {
+fn request_bytes(connection: &Connection, path: &str, body: Option<Value>) -> Result<Vec<u8>, String> {
     let port: u16 = connection.url.strip_prefix("http://127.0.0.1:")
         .ok_or("SERVICE_URL_INVALID")?.parse().map_err(|_| "SERVICE_URL_INVALID")?;
     let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
@@ -107,7 +107,25 @@ fn request(connection: &Connection, path: &str, body: Option<Value>) -> Result<V
     stream.take(2_097_152).read_to_end(&mut bytes).map_err(|_| "SERVICE_UNAVAILABLE")?;
     let end = bytes.windows(4).position(|x| x == b"\r\n\r\n").ok_or("SERVICE_RESPONSE_INVALID")?;
     if !bytes.starts_with(b"HTTP/1.1 200") { return Err("SERVICE_REQUEST_REJECTED".into()); }
-    serde_json::from_slice(&bytes[end + 4..]).map_err(|_| "SERVICE_RESPONSE_INVALID".into())
+    Ok(bytes[end + 4..].to_vec())
+}
+
+fn request(connection: &Connection, path: &str, body: Option<Value>) -> Result<Value, String> {
+    serde_json::from_slice(&request_bytes(connection, path, body)?)
+        .map_err(|_| "SERVICE_RESPONSE_INVALID".into())
+}
+#[tauri::command]
+fn export_diagnostics(app: tauri::AppHandle, service: tauri::State<VoiceService>) -> Result<String, String> {
+    let connection = service.runtime.lock().map_err(|_| "SERVICE_LOCK_FAILED")?.connection.clone();
+    let data = request_bytes(&connection, "/api/diagnostics/download", None)?;
+    let folder = app.path().download_dir().map_err(|_| "DOWNLOAD_DIRECTORY_UNAVAILABLE")?;
+    std::fs::create_dir_all(&folder).map_err(|_| "DIAGNOSTIC_SAVE_FAILED")?;
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+    let path = folder.join(format!("SiLing-diagnostics-{stamp}.zip"));
+    let mut output = std::fs::OpenOptions::new().create_new(true).write(true).open(&path)
+        .map_err(|_| "DIAGNOSTIC_SAVE_FAILED")?;
+    output.write_all(&data).map_err(|_| "DIAGNOSTIC_SAVE_FAILED")?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 fn start_service() -> Result<Runtime, Box<dyn std::error::Error>> {
@@ -136,7 +154,7 @@ fn start_service() -> Result<Runtime, Box<dyn std::error::Error>> {
         if let Ok(contents) = std::fs::read_to_string(&ready) {
             if let Ok(connection) = serde_json::from_str::<Connection>(&contents) {
                 return Ok(Runtime {child, connection, _directory: directory,
-                    #[cfg(windows)] _job: job});
+                    #[cfg(windows)] _job: Some(job)});
             }
         }
         if child.try_wait()?.is_some() { return Err("voice service exited before readiness".into()); }
@@ -189,7 +207,7 @@ fn toggle_mini(app: tauri::AppHandle) -> Result<(), String> {
 fn main() {
     #[cfg(windows)] let Some(_instance) = platform::single_instance() else { return; };
     let application = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![service_info, exit_app, toggle_mini])
+        .invoke_handler(tauri::generate_handler![service_info, exit_app, toggle_mini, export_diagnostics])
         .setup(|app| {
             app.manage(VoiceService {runtime: Mutex::new(start_service()?), stopping: AtomicBool::new(false)});
             let show = MenuItem::with_id(app, "show", "打开司聆", true, None::<&str>)?;
@@ -230,7 +248,10 @@ fn main() {
                     let status_code = service.runtime.lock().unwrap().child.try_wait();
                     if let Ok(Some(code)) = status_code {
                         if code.success() {handle.exit(0); break;}
-                        if restarts >= 3 {let _ = status.set_text("状态：服务异常，请退出后重试"); break;}
+                        // A one-file bootloader can die while its extracted server survives.
+                        // Close the old job BEFORE starting a replacement that needs its lock.
+                        #[cfg(windows)] {service.runtime.lock().unwrap()._job.take();}
+                        if restarts >= 3 {service.stopping.store(true, Ordering::SeqCst); let _ = status.set_text("状态：服务异常，请退出后重试"); break;}
                         restarts += 1;
                         std::thread::sleep(Duration::from_millis(500 * restarts));
                         match start_service() {
@@ -272,16 +293,25 @@ fn main() {
                     let service = handle.state::<VoiceService>();
                     let original = service.runtime.lock().unwrap().connection.clone();
                     let initial = request(&original, "/api/status", None).ok();
+                    let mini_ok = set_mini(&handle, true).is_ok()
+                        && handle.get_webview_window("mini").is_some();
+                    let _ = set_mini(&handle, false);
+                    let diagnostic_ok = request_bytes(&original, "/api/diagnostics/download", None)
+                        .map(|data| data.starts_with(b"PK") && data.len() > 100).unwrap_or(false);
                     let _ = service.runtime.lock().unwrap().child.kill();
                     let mut recovered = false;
+                    let mut recovered_pid = 0;
                     for _ in 0..100 {
                         std::thread::sleep(Duration::from_millis(200));
                         let next = service.runtime.lock().unwrap().connection.clone();
-                        if next.url != original.url && request(&next, "/api/status", None).is_ok() {recovered = true; break;}
+                        if next.url != original.url && request(&next, "/api/status", None)
+                            .map(|v| v["state"] == "MUTED").unwrap_or(false) {
+                            recovered = true; recovered_pid = next.pid; break;
+                        }
                     }
-                    let value = json!({"native_start":initial.is_some(),"initial_muted":initial.map(|v| v["state"] == "MUTED").unwrap_or(false),"service_restart":recovered,"hardware_acceptance":"NOT_VERIFIED"});
+                    let value = json!({"native_start":initial.is_some(),"initial_muted":initial.map(|v| v["state"] == "MUTED").unwrap_or(false),"service_restart":recovered,"mini_window":mini_ok,"diagnostic_download":diagnostic_ok,"initial_service_pid":original.pid,"recovered_service_pid":recovered_pid,"hardware_acceptance":"NOT_VERIFIED"});
                     let _ = std::fs::write(report, value.to_string());
-                    handle.exit(if recovered {0} else {1});
+                    handle.exit(if recovered && mini_ok && diagnostic_ok {0} else {1});
                 });
             }
             Ok(())
@@ -298,6 +328,7 @@ fn main() {
             if let Some(service) = app.try_state::<VoiceService>() {
                 service.stopping.store(true, Ordering::SeqCst);
                 if let Ok(mut runtime) = service.runtime.lock() {
+                    #[cfg(windows)] {runtime._job.take();}
                     let _ = runtime.child.kill(); let _ = runtime.child.wait();
                 }
             }

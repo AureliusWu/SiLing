@@ -34,3 +34,12 @@ export async function exitDesktop(): Promise<void> {
 
 export function inDesktop(): boolean {return isTauri();}
 export async function toggleMini(): Promise<void> {if (isTauri()) await invoke("toggle_mini");}
+export async function exportDiagnostics(): Promise<string> {
+  if (isTauri()) return invoke<string>("export_diagnostics");
+  const response = await fetch(`${connection.url}/api/diagnostics/download`, {headers:{Authorization:`Bearer ${connection.token}`}});
+  if (!response.ok) throw new Error("DIAGNOSTIC_EXPORT_FAILED");
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a"); link.href=url; link.download="SiLing-diagnostics.zip"; link.click();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+  return "诊断包已导出";
+}

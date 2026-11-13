@@ -103,29 +103,24 @@ jobs:
           path: fixtures
       - name: Verify packaged real KWS VAD and ASR
         run: python scripts/frozen_real_smoke.py dist/SiLing-Voice.exe
+      - name: Verify packaged Chinese TTS
+        run: python scripts/frozen_tts_smoke.py dist/SiLing-Voice.exe
       - name: Build Tauri Windows installer
         run: npm run tauri -- build
+      - name: Install, run native host, restart and uninstall
+        run: python scripts/windows_desktop_smoke.py
       - name: Prepare portable candidate and provenance
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force dist/portable | Out-Null
-          Copy-Item dist/SiLing-Voice.exe dist/portable/
-          Copy-Item apps/desktop/src-tauri/target/release/siling-desktop.exe dist/portable/SiLing.exe
-          Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/portable/
-          Copy-Item -Recurse dist/third-party-licenses dist/portable/
-          '{"version":"0.3.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
-          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.3.0-windows-x64.zip
-          Get-FileHash dist/SiLing-0.3.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
+        run: python scripts/release_package.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: SiLing-0.3.0-windows-x64-${{ github.sha }}
+          name: SiLing-0.4.0-windows-x64-${{ github.sha }}
           path: |
-            dist/SiLing-0.3.0-windows-x64.zip
+            dist/SiLing-0.4.0-windows-x64.zip
             dist/SHA256SUMS.txt
             apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
             apps/desktop/src-tauri/Cargo.lock
-            .evidence/frozen-real-*.json
+            .evidence/*.json
           include-hidden-files: true
           retention-days: 30
   real-models:
@@ -161,3 +156,29 @@ jobs:
           name: real-model-evidence-${{ github.sha }}
           path: .evidence
           include-hidden-files: true
+
+  publish-candidate:
+    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release:')
+    needs: windows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: SiLing-0.4.0-windows-x64-${{ github.sha }}
+          path: candidate
+      - name: Publish verified prerelease without replacing an existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PYCODE'
+          import os, pathlib, subprocess
+          assets = [str(p) for p in pathlib.Path('candidate').rglob('*')
+                    if p.is_file() and (p.name.endswith('-setup.exe') or p.name in {'SiLing-0.4.0-windows-x64.zip','SHA256SUMS.txt'})]
+          assert len(assets) == 3, assets
+          subprocess.run(['gh','release','create','v0.4.0-rc.1','--repo',os.environ['GITHUB_REPOSITORY'],
+                          '--target',os.environ['GITHUB_SHA'],'--prerelease','--title','SiLing 0.4.0 RC1',
+                          '--notes-file','docs/release-notes-0.4.0.md',*assets],check=True)
+          PYCODE

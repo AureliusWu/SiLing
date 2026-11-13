@@ -74,6 +74,13 @@ with tempfile.TemporaryDirectory() as temporary:
         assert status["mode"] == "demo"
         request("/api/control", {"action": "mute"})
         assert json.loads(request("/api/status"))["state"] == "MUTED"
+        import io
+        import zipfile
+
+        with zipfile.ZipFile(io.BytesIO(request("/api/diagnostics/download"))) as archive:
+            assert archive.namelist() == ["diagnostics.json"]
+            report = json.loads(archive.read("diagnostics.json"))
+            assert report["hardware_acceptance"] == "NOT_VERIFIED"
         request("/api/control", {"action": "exit"})
         assert child.wait(timeout=10) == 0
         assert not ready.exists()
