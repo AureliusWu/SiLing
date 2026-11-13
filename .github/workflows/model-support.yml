@@ -1,0 +1,19 @@
+name: Optional verified TTS development model
+on:
+  push:
+    paths: [".github/workflows/model-support.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  supply:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          curl -fL --retry 3 -o kokoro.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2
+          echo "259c9c8bc906d6078e4e0570421885dabb68b539c2f970fcbb890a58eeaf3e9c  kokoro.tar.bz2" | sha256sum -c -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-kokoro-development-model
+          path: kokoro.tar.bz2
+          retention-days: 3
