@@ -31,3 +31,6 @@ export async function api<T>(path: string, method = "GET", body?: unknown): Prom
 export async function exitDesktop(): Promise<void> {
   if (isTauri()) await invoke("exit_app");
 }
+
+export function inDesktop(): boolean {return isTauri();}
+export async function toggleMini(): Promise<void> {if (isTauri()) await invoke("toggle_mini");}

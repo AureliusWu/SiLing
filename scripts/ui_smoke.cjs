@@ -49,10 +49,26 @@ const path = require('node:path');
       await page.getByRole('button', {name:'发送', exact:true}).click();
       await page.getByText(`这是第${turn}轮模拟回复。真实 AI 服务尚未调用。`, {exact:true}).waitFor();
     }
+    await page.getByText('工具、权限与桌面', {exact:true}).click();
+    const project = path.join(temporary, 'project'); fs.mkdirSync(project);
+    await page.getByLabel('目标类型', {exact:true}).selectOption('folders');
+    await page.getByLabel('目标 ID', {exact:true}).fill('project');
+    await page.getByLabel('语音名称', {exact:true}).fill('项目目录');
+    await page.getByLabel('完整路径', {exact:true}).fill(project);
+    await page.getByRole('button', {name:'加入配置列表', exact:true}).click();
+    await page.getByRole('button', {name:'保存白名单', exact:true}).click();
+    await page.getByLabel('文字消息', {exact:true}).fill('打开项目目录');
+    await page.getByRole('button', {name:'发送', exact:true}).click();
+    await page.locator('.tool-approval').waitFor();
+    await page.getByRole('button', {name:'拒绝', exact:true}).click();
+    await page.getByText('操作已取消或无法执行。', {exact:true}).waitFor();
     await page.getByRole('button', {name:'完全退出司聆', exact:true}).click();
     await page.getByRole('alert').filter({hasText:'司聆已退出'}).waitFor();
     if (errors.length) throw new Error(errors.join('\n'));
     console.log('PASS: desktop/mobile UI, wake demo, clear, settings, exit; 0 page errors');
+  } catch(error) {
+    if (browser) {const pages = browser.contexts().flatMap(c => c.pages()); if (pages[0]) {await pages[0].screenshot({path:".evidence/ui-failure.png",fullPage:true}); fs.writeFileSync(".evidence/ui-failure.html",await pages[0].content());}}
+    throw error;
   } finally {
     if (browser) await browser.close();
     if (child.exitCode === null) child.kill();

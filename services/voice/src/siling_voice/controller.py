@@ -16,6 +16,8 @@ from .config import Settings, save_settings
 from .dialogue import Dialogue
 from .engine import FRAME, Engine, State
 from .secrets import KeyStore
+from .tools import ToolService
+from .windows import get_autostart
 
 
 class Controller:
@@ -31,10 +33,13 @@ class Controller:
         self.events: deque[dict[str, Any]] = deque(maxlen=128)
         self.metrics: deque[dict[str, Any]] = deque(maxlen=100)
         self.counter = 0
+        self.privacy_epoch = 0
         self.level = 0.0
         self.loading = False
         self.keys = KeyStore()
+        self.tools = ToolService(settings.tool_policy)
         self.dialogue = Dialogue(settings, models, self.emit)
+        self.dialogue.tool_service = self.tools
 
     def emit(self, event: dict[str, Any]) -> None:
         with self.lock:
@@ -53,7 +58,7 @@ class Controller:
                 self.metrics.append(event.copy())
             self.counter += 1
             self.events.append({**event, "id": self.counter, "at": time.time()})
-            if event["type"] == "transcript" and self.settings.provider != "disabled":
+            if event["type"] == "transcript":
                 with contextlib.suppress(RuntimeError):
                     self.dialogue.submit(event["text"])
 
@@ -79,6 +84,9 @@ class Controller:
                 "models_installed": (self.models / "installed.json").is_file(),
                 "running": self.audio_running,
                 "context_messages": len(self.dialogue.history),
+                "privacy_epoch": self.privacy_epoch,
+                "tools": self.tools.snapshot(),
+                "autostart": get_autostart(),
             }
 
     def start(self) -> None:
@@ -102,13 +110,14 @@ class Controller:
             mic, self.mic = self.mic, None
             self.state, self.level = "MUTED", 0.0
             self.events.clear()
+            self.privacy_epoch += 1
         if mic is not None:
             mic.close()
         if self.thread is not None:
             self.thread.join(timeout=timeout)
 
     def chat(self, text: str) -> None:
-        if self.settings.provider == "disabled":
+        if self.settings.provider == "disabled" and self.tools.match(text) is None:
             raise RuntimeError("PROVIDER_DISABLED")
         if self.dialogue.active:
             raise RuntimeError("DIALOGUE_BUSY")
@@ -153,13 +162,16 @@ class Controller:
             keyword_tokens(settings.wake_word, paths(self.models)["kws_tokens"])
         save_settings(settings)
         self.settings = settings
+        self.tools = ToolService(settings.tool_policy)
         self.dialogue = Dialogue(settings, self.models, self.emit)
+        self.dialogue.tool_service = self.tools
 
     def clear(self) -> None:
         self.dialogue.cancel()
         self.dialogue.clear()
         with self.lock:
             self.events.clear()
+            self.privacy_epoch += 1
 
     def _commands(self, engine: Engine) -> None:
         while True:

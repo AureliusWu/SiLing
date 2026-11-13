@@ -43,6 +43,7 @@ class Settings(BaseModel):
     tts_speaker: int = Field(default=3, ge=0, le=102)
     tts_speed: float = Field(default=1.0, ge=0.7, le=1.5)
     save_history: bool = False
+    tool_policy: Literal["off", "ask", "trusted"] = "ask"
 
     @field_validator("api_base")
     @classmethod

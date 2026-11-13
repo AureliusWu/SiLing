@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "siling-voice"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local Chinese wake-word and transcription service for Windows"
 requires-python = ">=3.12,<3.13"
 license = "MIT"

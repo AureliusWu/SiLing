@@ -113,15 +113,15 @@ jobs:
           Copy-Item apps/desktop/src-tauri/target/release/siling-desktop.exe dist/portable/SiLing.exe
           Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/portable/
           Copy-Item -Recurse dist/third-party-licenses dist/portable/
-          '{"version":"0.2.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
-          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.2.0-windows-x64.zip
-          Get-FileHash dist/SiLing-0.2.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
+          '{"version":"0.3.0","commit":"${{ github.sha }}","hardware_acceptance":"NOT_VERIFIED","models_bundled":false}' | Set-Content dist/portable/build-info.json
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/SiLing-0.3.0-windows-x64.zip
+          Get-FileHash dist/SiLing-0.3.0-windows-x64.zip | Format-List | Out-File dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: SiLing-0.2.0-windows-x64-${{ github.sha }}
+          name: SiLing-0.3.0-windows-x64-${{ github.sha }}
           path: |
-            dist/SiLing-0.2.0-windows-x64.zip
+            dist/SiLing-0.3.0-windows-x64.zip
             dist/SHA256SUMS.txt
             apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
             apps/desktop/src-tauri/Cargo.lock

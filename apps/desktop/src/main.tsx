@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from "react";
 import {createRoot} from "react-dom/client";
-import type {Device, Settings, Status, VoiceEvent} from "../../../packages/contracts";
-import {api, connect, exitDesktop} from "./api";
+import type {Device, Settings, Status, VoiceEvent, ToolConfig, Target} from "../../../packages/contracts";
+import {api, connect, exitDesktop, inDesktop, toggleMini} from "./api";
 import "./style.css";
 
 const labels = {IDLE: "等待唤醒", WAKE_DETECTED: "已唤醒", LISTENING: "正在听你说", TRANSCRIBING: "正在本地转写", THINKING: "正在思考", ACTING: "等待工具处理", SPEAKING: "正在播报", MUTED: "麦克风已释放", ERROR: "需要处理", STOPPING: "正在停止"};
@@ -31,11 +31,17 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState("");
   const [key, setKey] = useState("");
+  const [tools, setTools] = useState<ToolConfig>({apps:[],folders:[]});
+  const [targetKind, setTargetKind] = useState<"apps"|"folders">("apps");
+  const [target, setTarget] = useState<Target>({id:"",label:"",path:""});
   const [ready, setReady] = useState(false);
   const cursor = useRef(0);
   const mounted = useRef(true);
   const changed = useRef(false);
   const pttStart = useRef<Promise<void>>(Promise.resolve());
+  const toolChanged = useRef(false);
+  const epoch = useRef(-1);
+  const connectionFault = useRef(false);
 
   async function refreshDevices() {
     try {setDevices((await api<{devices: Device[]}>("devices")).devices);}
@@ -52,13 +58,21 @@ function App() {
         if (next.event_id < cursor.current) cursor.current = 0;
         else cursor.current = next.event_id;
         setStatus(next);
+        if (connectionFault.current) {setError(""); connectionFault.current = false;}
+        if (epoch.current !== next.privacy_epoch) {setMessages([]); epoch.current = next.privacy_epoch;}
+        if (!toolChanged.current) setTools(next.tools.config);
         if (!changed.current) setSettings(next.settings);
         for (const event of next.events) {
           if (event.type === "transcript" || event.type === "assistant") setMessages(old => [...old, event].slice(-24));
           if (event.type === "error") setError(event.code || "识别异常");
           if (event.type === "endpoint" && event.reason === "no_speech") setError("未听到指令，已回到待机。");
         }
-      } catch (e) {if (mounted.current) setError(e instanceof Error ? e.message : String(e));}
+      } catch (e) {
+        if (mounted.current) {
+          setError(e instanceof Error ? e.message : String(e)); connectionFault.current = true;
+          if (inDesktop()) {try {await connect();} catch { /* host supervisor reports retry state */ }}
+        }
+      }
       if (mounted.current) timer = setTimeout(() => void poll(), 200);
     }
     connect().then(async () => {
@@ -98,9 +112,24 @@ function App() {
     try {await api("credential", "POST", {key}); setKey(""); setError("");}
     catch (e) {setError(e instanceof Error ? e.message : String(e));}
   }
+  async function saveTools() {
+    try {await api("tools/config","PUT",tools); toolChanged.current = false; setError("");}
+    catch(e) {setError(e instanceof Error ? e.message : String(e));}
+  }
+  async function approve(ticket: string, approved: boolean) {
+    try {await api("tools/confirm","POST",{ticket,approved});setError("");}
+    catch(e) {setError(e instanceof Error ? e.message : String(e));}
+  }
+  function addTarget() {
+    toolChanged.current = true;
+    setTools({...tools,[targetKind]:[...tools[targetKind],target]});
+    setTarget({id:"",label:"",path:""});
+  }
+  const mini = new URLSearchParams(window.location.search).get("view") === "mini";
+  if (mini) return <main className="mini-window"><div data-tauri-drag-region className="mini-title">司聆 · {status ? labels[status.state] : "连接中"}</div><div className="meter"><i style={{width:`${(status?.level || 0)*100}%`}}/></div><div className="actions"><button onClick={() => void control(status?.running ? "mute" : "start")}>{status?.running ? "静音" : "监听"}</button><button onPointerDown={e => {e.currentTarget.setPointerCapture(e.pointerId);pttStart.current=control("ptt_start");}} onPointerUp={() => {void pttStart.current.then(() => control("ptt_stop"));}} onPointerCancel={() => void control("cancel")}>按住说话</button><button onClick={() => void control("cancel")}>停止</button></div><small>{status?.cloud ? "云端 AI · 音频本地" : "本地语音"}</small></main>;
   const listening = status?.state === "IDLE" || status?.state === "LISTENING";
   return <main>
-    <header><div><span className="eyebrow">SiLing · 0.2.0</span><h1>司聆</h1></div><span className="privacy">{status?.cloud ? "● 云端 AI · 本地语音" : "● 本地语音处理"}</span></header>
+    <header><div><span className="eyebrow">SiLing · 0.3.0</span><h1>司聆</h1></div><span className="privacy">{status?.cloud ? "● 云端 AI · 本地语音" : "● 本地语音处理"}</span></header>
     <section className="voice" aria-label="语音状态">
       {status?.mode === "demo" && <p className="demo">模拟演示 · 不采集麦克风，不进行真实语音识别</p>}
       <div className={`orb ${listening ? "active" : ""}`} aria-hidden="true">聆</div>
@@ -115,16 +144,17 @@ function App() {
       </div>
     </section>
     {error && <div role="alert" className="error">{errors[error] || error}</div>}
+    {status?.tools.pending.map(p => <aside className="tool-approval" key={p.ticket}><strong>等待确认：{p.label}</strong><p>工具：{p.tool}。仅执行已配置的目标，无任意命令权限。</p><button onClick={() => void approve(p.ticket,true)}>确认执行</button> <button onClick={() => void approve(p.ticket,false)}>拒绝</button></aside>)}
     {!status?.models_installed && status?.mode !== "demo" && <aside>首次使用需显式下载约 197 MB 模型：<code>siling-voice models download</code><br/>便携包可运行 <code>SiLing-Voice.exe models download</code>，完成后点击开始监听。</aside>}
     <section className="transcripts"><div className="section-title"><h2>对话与转写</h2><button disabled={!ready || busy} onClick={() => void control("clear")}>清空</button></div>
       {messages.length ? messages.map(m => <article key={m.id} className={m.type === "assistant" ? "assistant" : ""}><small>{m.type === "assistant" ? "司聆" : "你"}</small><p>{m.text}</p>{m.asr_ms !== undefined && <small>本地 ASR · {m.asr_ms} ms</small>}</article>) : <p className="empty">唤醒后说一句话，识别结果会显示在这里。</p>}
       <form className="chat-input" onSubmit={e => {e.preventDefault(); void send();}}><input aria-label="文字消息" value={text} maxLength={2000} onChange={e => setText(e.target.value)} placeholder="也可以输入文字测试 AI 对话"/><button disabled={!ready || status?.dialogue_active}>发送</button><button type="button" disabled={!status?.dialogue_active} onClick={() => void control("cancel")}>停止回复</button></form>
     </section>
     {settings && <details><summary>AI 与播报设置</summary><div className="settings">
-      <label>对话服务<select value={settings.provider} onChange={e => edit({provider: e.target.value as Settings["provider"]})}><option value="disabled">仅转写</option><option value="mock">模拟对话（无真实 AI）</option><option value="ollama">Ollama 本地</option><option value="compatible">云端 / OpenAI 兼容接口</option></select></label>
+      <label>对话服务<select aria-label="对话服务" value={settings.provider} onChange={e => edit({provider: e.target.value as Settings["provider"]})}><option value="disabled">仅转写</option><option value="mock">模拟对话（无真实 AI）</option><option value="ollama">Ollama 本地</option><option value="compatible">云端 / OpenAI 兼容接口</option></select></label>
       <label>API 地址<input value={settings.api_base} onChange={e => edit({api_base:e.target.value})}/></label>
       <label>模型 ID<input value={settings.llm_model} onChange={e => edit({llm_model:e.target.value})}/></label>
-      <label>中文播报<select value={settings.tts} onChange={e => edit({tts:e.target.value as Settings["tts"]})}><option value="off">关闭播报</option><option value="kokoro">Kokoro 本地中文（需下载）</option><option value="system">Windows 系统中文语音</option><option value="mock">模拟播报（无声音）</option></select></label>
+      <label>中文播报<select aria-label="中文播报" value={settings.tts} onChange={e => edit({tts:e.target.value as Settings["tts"]})}><option value="off">关闭播报</option><option value="kokoro">Kokoro 本地中文（需下载）</option><option value="system">Windows 系统中文语音</option><option value="mock">模拟播报（无声音）</option></select></label>
       {settings.tts === "kokoro" && <p>首次执行 <code>SiLing-Voice.exe tts download</code> 获取约 147 MB 模型。</p>}
       <label className="check"><input type="checkbox" checked={settings.cloud_consent} onChange={e => edit({cloud_consent:e.target.checked})}/>允许向选定云服务发送文字与上下文，可能产生费用（音频仍留在本机）</label>
       <label className="check"><input type="checkbox" checked={settings.save_history} onChange={e => edit({save_history:e.target.checked})}/>在本机保留对话历史（默认关闭，可清空删除）</label>
@@ -139,6 +169,20 @@ function App() {
       <label>结束静音时间<select value={settings.silence_ms} onChange={e => edit({silence_ms: Number(e.target.value)})}>{[400,700,1000,1500].map(n => <option key={n} value={n}>{n} ms</option>)}</select></label>
       <label className="check"><input type="checkbox" checked={settings.chime} onChange={e => edit({chime: e.target.checked})}/>唤醒提示音</label>
       <button disabled={!ready || busy} onClick={() => void save()}>保存设置并停止监听</button>
+    </div></details>}
+    {settings && <details><summary>工具、权限与桌面</summary><div className="settings">
+      <label>工具权限<select aria-label="工具权限" value={settings.tool_policy} onChange={e => edit({tool_policy:e.target.value as Settings["tool_policy"]})}><option value="off">禁用工具</option><option value="ask">每次确认（默认）</option><option value="trusted">自动执行已配置白名单</option></select></label>
+      <button disabled={!ready || busy} onClick={() => void save()}>保存工具权限</button>
+      <p>仅支持打开已配置应用、目录、调节音量和读取基础系统信息。模型无法新增目标或授予权限。</p>
+      <button onClick={() => {void api<{apps:Target[]}>("tools/discover").then(r => {toolChanged.current=true;setTools({...tools,apps:[...tools.apps.filter(t => t.id!=="vscode"),...r.apps]});});}}>查找本机 VS Code</button>
+      {(["apps","folders"] as const).map(kind => <div key={kind}><strong>{kind === "apps" ? "应用白名单" : "目录白名单"}</strong>{tools[kind].map(t => <p key={t.id}>{t.label} · {t.id}<br/><small>{t.path}</small> <button onClick={() => {toolChanged.current=true;setTools({...tools,[kind]:tools[kind].filter(x => x.id!==t.id)});}}>移除配置</button></p>)}</div>)}
+      <label>目标类型<select aria-label="目标类型" value={targetKind} onChange={e => setTargetKind(e.target.value as "apps"|"folders")}><option value="apps">应用 EXE</option><option value="folders">文件夹</option></select></label>
+      <label>目标 ID<input value={target.id} placeholder="例如 vscode / project" onChange={e => setTarget({...target,id:e.target.value})}/></label>
+      <label>语音名称<input value={target.label} placeholder="例如 VS Code / 项目目录" onChange={e => setTarget({...target,label:e.target.value})}/></label>
+      <label>完整路径<input value={target.path} onChange={e => setTarget({...target,path:e.target.value})}/></label>
+      <button disabled={!target.id || !target.label || !target.path} onClick={addTarget}>加入配置列表</button><button onClick={() => void saveTools()}>保存白名单</button>
+      <label className="check"><input type="checkbox" checked={status?.autostart || false} onChange={e => {void api("desktop/autostart","POST",{enabled:e.target.checked}).catch(x => setError(x.message));}}/>登录 Windows 时启动司聆（初始不录音）</label>
+      <button disabled={!inDesktop()} onClick={() => {void toggleMini();}}>显示/隐藏悬浮窗</button>
     </div></details>}
     <footer><p>音频始终本地处理；历史默认不保存。思考和播报期间释放麦克风，使用「按住说话」或停止按钮打断。</p><button disabled={!ready || busy} onClick={() => void control("exit")}>完全退出司聆</button></footer>
   </main>;

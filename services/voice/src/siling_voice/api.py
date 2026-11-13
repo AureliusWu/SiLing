@@ -13,12 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool
 
 from . import __version__
 from .audio import AudioFailure
 from .config import Settings
 from .controller import Controller
+from .tools import ToolConfig
+from .windows import discover_apps, set_autostart
 
 
 class Action(BaseModel):
@@ -33,6 +35,17 @@ class Message(BaseModel):
 class Credential(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: SecretStr = Field(min_length=1, max_length=4096)
+
+
+class Approval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticket: str = Field(min_length=20, max_length=80)
+    approved: StrictBool
+
+
+class Toggle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: StrictBool
 
 
 def create_app(controller: Controller, token: str | None = None) -> FastAPI:
@@ -149,6 +162,33 @@ def create_app(controller: Controller, token: str | None = None) -> FastAPI:
     def delete_credential() -> dict:
         controller.keys.delete()
         return {"configured": controller.keys.configured()}
+
+    @app.put("/api/tools/config", dependencies=secured)
+    def tool_config(body: ToolConfig) -> dict:
+        try:
+            controller.tools.update(body)
+        except (OSError, ValueError):
+            raise HTTPException(400, "TOOL_TARGET_INVALID_OR_BLOCKED") from None
+        return {"ok": True}
+
+    @app.get("/api/tools/discover", dependencies=secured)
+    def discover() -> dict:
+        return {"apps": discover_apps()}
+
+    @app.post("/api/tools/confirm", dependencies=secured)
+    def approve(body: Approval) -> dict:
+        try:
+            return controller.tools.confirm(body.ticket, body.approved)
+        except ValueError:
+            raise HTTPException(409, "TOOL_TICKET_EXPIRED") from None
+
+    @app.post("/api/desktop/autostart", dependencies=secured)
+    def autostart(body: Toggle) -> dict:
+        try:
+            set_autostart(body.enabled)
+        except (OSError, RuntimeError) as error:
+            raise HTTPException(400, str(error)) from None
+        return {"enabled": body.enabled}
 
     @app.put("/api/settings", dependencies=secured)
     def settings(body: Settings) -> dict:

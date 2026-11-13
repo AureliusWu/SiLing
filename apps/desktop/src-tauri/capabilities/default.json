@@ -1,1 +1,12 @@
-{"identifier":"main-window","description":"Minimal local window capabilities; no shell or filesystem plugin","windows":["main"],"permissions":["core:default"]}
+{
+  "identifier": "main-window",
+  "description": "Minimal local window capabilities; no shell or filesystem plugin",
+  "windows": [
+    "main",
+    "mini"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}

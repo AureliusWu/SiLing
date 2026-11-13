@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import Settings, data_dir
-from .providers import Cancelled, Provider, ProviderFailure
+from .providers import Cancelled, Provider, ProviderFailure, Reply
 from .tts import Speaker
 
 SYSTEM = (
@@ -49,7 +49,9 @@ class Dialogue:
                 self.history = []
 
     def submit(self, text: str) -> None:
-        if self.settings.provider == "disabled":
+        if self.settings.provider == "disabled" and (
+            self.tool_service is None or self.tool_service.match(text) is None
+        ):
             return
         if not text.strip() or len(text) > 2000:
             raise ValueError("MESSAGE_LENGTH_INVALID")
@@ -102,11 +104,20 @@ class Dialogue:
                     *self.history,
                     {"role": "user", "content": text},
                 ]
-            reply = self.provider.complete(
-                messages,
-                self.cancel_event,
-                self.tool_service.schemas() if self.tool_service is not None else None,
-            )
+            local = self.tool_service.match(text) if self.tool_service is not None else None
+            if local is not None:
+                self.transition("ACTING")
+                outcome = self.tool_service.request(local, self.cancel_event, self.emit)
+                reply = Reply("操作已完成。" if outcome.get("ok") else "操作已取消或无法执行。")
+                if local["function"]["name"] == "get_system_info" and outcome.get("ok"):
+                    info = outcome["info"]
+                    reply = Reply(f"系统为{info['os']}，处理器核心数为{info['cpu_count']}。")
+            else:
+                reply = self.provider.complete(
+                    messages,
+                    self.cancel_event,
+                    self.tool_service.schemas() if self.tool_service is not None else None,
+                )
             metrics["llm_ms"] = round((time.perf_counter() - start) * 1000, 1)
             if reply.calls:
                 if self.tool_service is None:
