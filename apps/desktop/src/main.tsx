@@ -38,6 +38,7 @@ function App() {
   const cursor = useRef(0);
   const mounted = useRef(true);
   const changed = useRef(false);
+  const revision = useRef(0);
   const pttStart = useRef<Promise<void>>(Promise.resolve());
   const toolChanged = useRef(false);
   const epoch = useRef(-1);
@@ -94,11 +95,13 @@ function App() {
     finally {setBusy(false);}
   }
   function edit(patch: Partial<Settings>) {
+    revision.current += 1;
     changed.current = true; if (settings) setSettings({...settings, ...patch});
   }
   async function save() {
     setBusy(true); setError("");
-    try {await api("settings", "PUT", settings); changed.current = false;}
+    const submittedRevision = revision.current;
+    try {await api("settings", "PUT", settings); if (revision.current === submittedRevision) changed.current = false;}
     catch (e) {setError(e instanceof Error ? e.message : String(e));}
     finally {setBusy(false);}
   }
@@ -148,7 +151,7 @@ function App() {
     {!status?.models_installed && status?.mode !== "demo" && <aside>首次使用需显式下载约 197 MB 模型：<code>siling-voice models download</code><br/>便携包可运行 <code>SiLing-Voice.exe models download</code>，完成后点击开始监听。</aside>}
     <section className="transcripts"><div className="section-title"><h2>对话与转写</h2><button disabled={!ready || busy} onClick={() => void control("clear")}>清空</button></div>
       {messages.length ? messages.map(m => <article key={m.id} className={m.type === "assistant" ? "assistant" : ""}><small>{m.type === "assistant" ? "司聆" : "你"}</small><p>{m.text}</p>{m.asr_ms !== undefined && <small>本地 ASR · {m.asr_ms} ms</small>}</article>) : <p className="empty">唤醒后说一句话，识别结果会显示在这里。</p>}
-      <form className="chat-input" onSubmit={e => {e.preventDefault(); void send();}}><input aria-label="文字消息" value={text} maxLength={2000} onChange={e => setText(e.target.value)} placeholder="也可以输入文字测试 AI 对话"/><button disabled={!ready || status?.dialogue_active}>发送</button><button type="button" disabled={!status?.dialogue_active} onClick={() => void control("cancel")}>停止回复</button></form>
+      <form className="chat-input" onSubmit={e => {e.preventDefault(); if (!busy) void send();}}><input aria-label="文字消息" value={text} maxLength={2000} onChange={e => setText(e.target.value)} placeholder="也可以输入文字测试 AI 对话"/><button disabled={!ready || busy || status?.dialogue_active}>发送</button><button type="button" disabled={!status?.dialogue_active} onClick={() => void control("cancel")}>停止回复</button></form>
     </section>
     {settings && <details><summary>AI 与播报设置</summary><div className="settings">
       <label>对话服务<select aria-label="对话服务" value={settings.provider} onChange={e => edit({provider: e.target.value as Settings["provider"]})}><option value="disabled">仅转写</option><option value="mock">模拟对话（无真实 AI）</option><option value="ollama">Ollama 本地</option><option value="compatible">云端 / OpenAI 兼容接口</option></select></label>
